@@ -1,6 +1,7 @@
 ## Getting Started
 ~~~
-npx create-next-app mantine-lesson --ts
+npx create-next-app@12.3.2 mantine-lesson --ts
+yarn add next@12.3.2
 ~~~
 ~~~
 yarn add -D tailwindcss postcss autoprefixer
