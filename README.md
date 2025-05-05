@@ -16,9 +16,8 @@ yarn add @mantine/notifications@4.2.5
 https://tailwindcss.com/docs/guides/nextjs
 
 
-// app/page.tsx
-import { fetchCsvFromS3 } from './actions/fetchCsv';
-import Papa from 'papaparse';
+'use client';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -28,7 +27,36 @@ type Entry = {
   hours: number;
 };
 
-function parseCsv(csvText: string): Entry[] {
+type Props = {
+  title: string;
+  data: Entry[];
+  xKey: 'user' | 'product';
+  color: string;
+};
+
+export function BarChartCard({ title, data, xKey, color }: Props) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <h3 className="text-lg font-medium mb-2">{title}</h3>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data}>
+            <XAxis dataKey={xKey} />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="hours" fill={color} />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+----
+import { fetchCsvFromS3 } from './actions/fetchCsv';
+import Papa from 'papaparse';
+import { BarChartCard } from '@/components/BarChartCard';
+
+function parseCsv(csvText: string) {
   const parsed = Papa.parse<string[]>(csvText.trim(), { skipEmptyLines: true }).data;
 
   return parsed.map(([user, product, hourStr]) => ({
@@ -58,49 +86,24 @@ export default async function Page() {
     <main className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">CSV Time Report</h1>
 
-      {/* Per User */}
       <section>
         <h2 className="text-xl font-semibold mb-2">Per User</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(byUser).map(([user, items]) => (
-            <Card key={user}>
-              <CardContent className="p-4">
-                <h3 className="text-lg font-medium mb-2">{user}</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={items}>
-                    <XAxis dataKey="product" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="hours" fill="#3b82f6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <BarChartCard key={user} title={user} data={items} xKey="product" color="#3b82f6" />
           ))}
         </div>
       </section>
 
-      {/* Per Product */}
       <section>
         <h2 className="text-xl font-semibold mb-2">Per Product</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(byProduct).map(([product, items]) => (
-            <Card key={product}>
-              <CardContent className="p-4">
-                <h3 className="text-lg font-medium mb-2">{product}</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={items}>
-                    <XAxis dataKey="user" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="hours" fill="#10b981" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <BarChartCard key={product} title={product} data={items} xKey="user" color="#10b981" />
           ))}
         </div>
       </section>
     </main>
   );
 }
+
