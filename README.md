@@ -15,6 +15,17 @@ yarn add @mantine/notifications@4.2.5
 ~~~
 https://tailwindcss.com/docs/guides/nextjs
 
+import { fetchCsvFromS3 } from './actions/fetchCsv';
+import TimeReport from '@/components/TimeReport'; // Your Client Component
+
+export default async function Page() {
+  const csv = await fetchCsvFromS3(); // fetch from S3
+
+  return <TimeReport csv={csv} />;
+}
+
+---
+// components/TimeReport.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -27,23 +38,21 @@ type Entry = {
   hours: number;
 };
 
-// Example CSV. Replace this with fetch from S3 or props
-const exampleCsv = `user1,productA,100hour
-user1,productB,150hour
-user2,productA,50hour
-user3,productC,80hour`;
+type Props = {
+  csv: string;
+};
 
-export default function Page() {
+export default function TimeReport({ csv }: Props) {
   const [data, setData] = useState<Entry[]>([]);
   const [users, setUsers] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState<string>('');
 
   useEffect(() => {
-    const parsed = Papa.parse<string[]>(exampleCsv.trim(), { skipEmptyLines: true }).data;
+    const parsed = Papa.parse<string[]>(csv.trim(), { skipEmptyLines: true }).data;
     const entries: Entry[] = [];
 
     parsed.forEach(([user, product, hourStr]) => {
-      const hours = parseInt(hourStr.replace(/[^\d]/g, ''));
+      const hours = parseInt(hourStr?.replace(/[^\d]/g, '') || '');
       if (user && product && !isNaN(hours)) {
         entries.push({ user: user.trim(), product: product.trim(), hours });
       }
@@ -53,16 +62,14 @@ export default function Page() {
 
     const uniqueUsers = [...new Set(entries.map((e) => e.user))];
     setUsers(uniqueUsers);
-    setSelectedUser(uniqueUsers[0]); // default select
-  }, []);
+    setSelectedUser(uniqueUsers[0]);
+  }, [csv]);
 
   const filtered = data.filter((e) => e.user === selectedUser);
   const maxHour = Math.max(...filtered.map((e) => e.hours), 1);
 
   return (
-    <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Time Report</h1>
-
+    <div className="space-y-6">
       <div className="max-w-sm">
         <Select value={selectedUser} onValueChange={setSelectedUser}>
           <SelectTrigger>
@@ -94,6 +101,6 @@ export default function Page() {
           </div>
         ))}
       </div>
-    </main>
+    </div>
   );
 }
