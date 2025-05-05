@@ -15,22 +15,35 @@ yarn add @mantine/notifications@4.2.5
 ~~~
 https://tailwindcss.com/docs/guides/nextjs
 
+// page.tsx (server component)
 import { fetchCsvFromS3 } from './actions/fetchCsv';
-import TimeReport from '@/components/TimeReport'; // Your Client Component
+import Papa from 'papaparse';
+import TimeReport from '@/components/TimeReport';
 
 export default async function Page() {
-  const csv = await fetchCsvFromS3(); // fetch from S3
+  const csv = await fetchCsvFromS3();
+  const parsed = Papa.parse<string[]>(csv.trim(), { skipEmptyLines: true }).data;
 
-  return <TimeReport csv={csv} />;
+  const entries = parsed
+    .map(([user, product, hourStr]) => {
+      const hours = parseFloat(hourStr?.replace(/[^\d.]/g, '') || '');
+      if (!user || !product || isNaN(hours)) return null;
+      return { user: user.trim(), product: product.trim(), hours };
+    })
+    .filter(Boolean);
+
+  const uniqueUsers = [...new Set(entries.map((e) => e!.user))];
+  const initialUser = uniqueUsers[0];
+
+  return <TimeReport entries={entries} initialUser={initialUser} />;
 }
 
 ---
 // components/TimeReport.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import Papa from 'papaparse';
 
 type Entry = {
   user: string;
@@ -39,33 +52,14 @@ type Entry = {
 };
 
 type Props = {
-  csv: string;
+  entries: Entry[];
+  initialUser: string;
 };
 
-export default function TimeReport({ csv }: Props) {
-  const [data, setData] = useState<Entry[]>([]);
-  const [users, setUsers] = useState<string[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>('');
-
-  useEffect(() => {
-    const parsed = Papa.parse<string[]>(csv.trim(), { skipEmptyLines: true }).data;
-    const entries: Entry[] = [];
-
-    parsed.forEach(([user, product, hourStr]) => {
-      const hours = parseInt(hourStr?.replace(/[^\d]/g, '') || '');
-      if (user && product && !isNaN(hours)) {
-        entries.push({ user: user.trim(), product: product.trim(), hours });
-      }
-    });
-
-    setData(entries);
-
-    const uniqueUsers = [...new Set(entries.map((e) => e.user))];
-    setUsers(uniqueUsers);
-    setSelectedUser(uniqueUsers[0]);
-  }, [csv]);
-
-  const filtered = data.filter((e) => e.user === selectedUser);
+export default function TimeReport({ entries, initialUser }: Props) {
+  const [selectedUser, setSelectedUser] = useState(initialUser);
+  const users = [...new Set(entries.map((e) => e.user))];
+  const filtered = entries.filter((e) => e.user === selectedUser);
   const maxHour = Math.max(...filtered.map((e) => e.hours), 1);
 
   return (
@@ -90,7 +84,7 @@ export default function TimeReport({ csv }: Props) {
           <div key={i}>
             <div className="flex justify-between text-sm mb-1">
               <span>{product}</span>
-              <span>{hours}h</span>
+              <span>{hours.toFixed(1)}h</span>
             </div>
             <div className="bg-gray-200 h-4 rounded overflow-hidden">
               <div
